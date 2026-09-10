@@ -226,11 +226,16 @@ func TestRegistry_NamesAreSorted(t *testing.T) {
 	assert.Equal(t, []string{"alpha", "mid", "zeta"}, reg.Names())
 }
 
-// The production registry ships identity-only, so nothing a resolver could read out
-// of a request is reachable in the shipped binary yet.
-func TestDefaultRegistry_IsIdentityOnlyAndFrozen(t *testing.T) {
+// The production registry is an explicit, closed list. Asserting the exact set — rather
+// than merely that known names are present — is what makes an accidental registration
+// visible in review: a resolver reachable by name is a resolver a controller can point
+// a route at.
+//
+// "mcp" is registered but inert: no controller emits resolver_name "mcp" today, so
+// every MCP proxy still prepares to route-key exactly as it does now.
+func TestDefaultRegistry_RegisteredResolversAndFrozen(t *testing.T) {
 	def := DefaultRegistry()
-	assert.Equal(t, []string{RouteKeyResolverName}, def.Names())
+	assert.Equal(t, []string{MCPResolverName, RouteKeyResolverName}, def.Names())
 
 	r, ok := def.Get(RouteKeyResolverName)
 	require.True(t, ok)
@@ -245,7 +250,7 @@ func TestIndependentRegistryDoesNotAffectDefault(t *testing.T) {
 
 	_, ok := DefaultRegistry().Get("test-only")
 	assert.False(t, ok, "a resolver registered in a test registry must not appear in the production registry")
-	assert.Equal(t, []string{RouteKeyResolverName}, DefaultRegistry().Names())
+	assert.Equal(t, []string{MCPResolverName, RouteKeyResolverName}, DefaultRegistry().Names())
 }
 
 // ─── PrepareRoute ────────────────────────────────────────────────────────────

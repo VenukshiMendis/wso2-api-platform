@@ -225,6 +225,23 @@ type Resolution struct {
 	// Empty means the resolver could not identify anything to bind to, which is
 	// rejected as FailureInvalidRequest.
 	ChainKey string
+
+	// Attributes are protocol-derived facts the resolver captured in the same pass
+	// that identified the operation, carried so policies need not re-parse a body the
+	// resolver has already read.
+	//
+	// They are advisory context, never a second statement of which operation ran:
+	// Operation stays derived from ChainKey precisely so telemetry and enforcement
+	// cannot disagree, and nothing here may be used to override it.
+	//
+	// Keys are namespaced by protocol and by provenance ("mcp.body.method"), because a
+	// multiplexed transport can carry one fact in both a header and the body and their
+	// disagreeing is security-relevant rather than incidental.
+	//
+	// Values originate in the request and are caller-controlled. The kernel bounds
+	// them in count and length before any policy sees them; a resolver must not assume
+	// everything it returns here survives.
+	Attributes map[string]string
 }
 
 // BoundResolution is the outcome of binding a resolution to a chain that exists.
@@ -241,6 +258,11 @@ type BoundResolution struct {
 	// Empty for a direct route: there the route determined the chain, so the resolver
 	// identified no operation, and the chain key is already on the span.
 	Operation string
+
+	// Attributes are the resolution's protocol-derived facts, carried through to the
+	// kernel unchanged. Bounding happens at the kernel boundary rather than here: this
+	// package must not be the place a resolver could be trusted to police itself.
+	Attributes map[string]string
 }
 
 // FailureKind classifies why resolution failed, so the kernel can pick a status and

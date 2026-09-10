@@ -68,3 +68,8 @@ require (
 replace github.com/wso2/api-platform/common => ../../../common
 
 replace github.com/wso2/api-platform/httpkit => ../../../httpkit
+
+// LOCAL DEVELOPMENT ONLY — remove before merge and bump the sdk/core version instead.
+// SharedContext.ResolvedOperation / ResolutionAttributes shipped in api-platform #3317
+// (merged 2026-08-27) but are not in the released sdk/core v0.4.0 this module pins.
+replace github.com/wso2/api-platform/sdk/core => ../../../sdk/core

@@ -79,6 +79,11 @@ var (
 	// route-not-found.
 	ResolutionFailuresTotal CounterVec
 
+	// ResolutionAttributesDroppedTotal counts resolver-published attributes discarded
+	// at the kernel boundary because they exceeded the count or length bound. Values
+	// are caller-controlled, so a rising count is a signal about traffic, not a bug.
+	ResolutionAttributesDroppedTotal CounterVec
+
 	// RouteResolutionIngestFailuresTotal counts routes dropped at xDS ingest
 	// because their resolution config is unusable — the reason labels emitted today
 	// are unknown_resolver, invalid_resolver_config and prepare_failed. A non-zero
@@ -373,6 +378,15 @@ func initMetrics() {
 		[]string{"resolver", "kind"},
 	)
 
+	ResolutionAttributesDroppedTotal = newCounterVec(
+		prometheus.CounterOpts{
+			Namespace: namespace,
+			Name:      "resolution_attributes_dropped_total",
+			Help:      "Total number of resolver-published attributes dropped for exceeding the count or value-length bound",
+		},
+		[]string{"resolver", "reason"},
+	)
+
 	RouteResolutionIngestFailuresTotal = newCounterVec(
 		prometheus.CounterOpts{
 			Namespace: namespace,
@@ -488,6 +502,7 @@ func initRegistry() {
 	registerHistogramVec(TrafficLogFlushDurationSecond)
 	registerCounterVec(TrafficLogWriteErrorsTotal)
 	registerCounterVec(ResolutionFailuresTotal)
+	registerCounterVec(ResolutionAttributesDroppedTotal)
 	registerCounterVec(RouteResolutionIngestFailuresTotal)
 
 	Up.Set(1)

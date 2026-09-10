@@ -706,7 +706,7 @@ func (s *ExternalProcessorServer) initializeExecutionContext(
 	}
 
 	ec := s.newBoundExecutionContext(routeKey, rc, bound.ChainKey, chain, req, routeMetadata)
-	ec.operation = bound.Operation
+	ec.applyResolution(bound)
 	*execCtx = ec
 	return &routeMetadata, bindReady, nil
 }
@@ -743,7 +743,7 @@ func (s *ExternalProcessorServer) bindStaticRoute(
 	}
 
 	ec := s.newBoundExecutionContext(routeKey, rc, bound.ChainKey, chain, req, routeMetadata)
-	ec.operation = bound.Operation
+	ec.applyResolution(bound)
 	*execCtx = ec
 	return &routeMetadata, bindReady, nil
 }

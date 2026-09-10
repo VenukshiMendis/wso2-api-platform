@@ -229,7 +229,7 @@ func (ec *PolicyExecutionContext) bindPendingChainAndProcess(
 	// Bind.
 	ec.policyChain = chain
 	ec.chainKey = bound.ChainKey
-	ec.operation = bound.Operation
+	ec.applyResolution(bound)
 	ec.pending = nil
 	ec.boundAtBodyPhase = true
 
@@ -424,6 +424,79 @@ func (ec *PolicyExecutionContext) noChainPassThroughResponseBody() *extprocv3.Pr
 	}
 }
 
+// Bounds on resolver-published attributes. They exist because attribute values
+// originate in the request: a tool name is whatever the caller typed, and an unbounded
+// one copied into every request's context is both a memory cost and, if a policy ever
+// used it as a metrics label, a cardinality denial of service.
+//
+// Enforced here rather than in each resolver on purpose. MCP is the first of several
+// resolvers, and a per-resolver bound is a rule each new author can forget; one
+// enforcement point at the boundary cannot be opted out of.
+const (
+	maxResolutionAttributes        = 32
+	maxResolutionAttributeValueLen = 256
+)
+
+// boundResolutionAttributes returns a copy of attrs with over-long values and excess
+// keys removed, counting whatever it drops.
+//
+// Over-long values are dropped rather than truncated: a truncated tool name that still
+// looks like a valid one is worse than an absent one, because a policy cannot tell it
+// was altered. Keys are selected in sorted order so that an over-count drops the same
+// entries on every request rather than varying with map iteration.
+func boundResolutionAttributes(resolverName string, attrs map[string]string) map[string]string {
+	if len(attrs) == 0 {
+		return nil
+	}
+
+	keys := make([]string, 0, len(attrs))
+	for k, v := range attrs {
+		if len(v) > maxResolutionAttributeValueLen {
+			metrics.ResolutionAttributesDroppedTotal.WithLabelValues(resolverName, "length").Inc()
+			continue
+		}
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+
+	if len(keys) > maxResolutionAttributes {
+		for range keys[maxResolutionAttributes:] {
+			metrics.ResolutionAttributesDroppedTotal.WithLabelValues(resolverName, "count").Inc()
+		}
+		keys = keys[:maxResolutionAttributes]
+	}
+
+	if len(keys) == 0 {
+		return nil
+	}
+	bounded := make(map[string]string, len(keys))
+	for _, k := range keys {
+		bounded[k] = attrs[k]
+	}
+	return bounded
+}
+
+// applyResolution records a bound resolution on the request: the engine's own copy for
+// telemetry, and the two SharedContext fields every policy reads.
+//
+// It is one function rather than three assignments because there are three bind sites —
+// a protocol resolver resolving at the header phase, a static route, and a deferred route
+// resolving at the body callback — and a fact recorded at two of them but not the third
+// is the kind of gap that only shows up as a policy mysteriously seeing nothing.
+//
+// SharedContext already exists at every one of those sites: newBoundExecutionContext
+// builds the request contexts before any of them run.
+func (ec *PolicyExecutionContext) applyResolution(bound resolver.BoundResolution) {
+	ec.operation = bound.Operation
+	if ec.sharedCtx == nil {
+		return
+	}
+	ec.sharedCtx.ResolvedOperation = bound.Operation
+	ec.sharedCtx.ResolutionAttributes = policy.NewResolutionAttributes(
+		boundResolutionAttributes(ec.resolverName, bound.Attributes),
+	)
+}
+
 // recordResolutionAttributes stamps the resolver name, the selected chain key and the
 // resolved operation on a span, skipping whichever is not known yet.
 //
@@ -446,6 +519,20 @@ func (ec *PolicyExecutionContext) recordResolutionAttributes(span trace.Span) {
 	}
 	if ec.operation != "" {
 		attrs = append(attrs, attribute.String(constants.AttrResolvedOperation, ec.operation))
+	}
+	// Only allow-listed attributes reach the span. Everything the resolver published
+	// stays available to policies; what is withheld here is withheld from the tracing
+	// backend's index, not from enforcement.
+	if ec.sharedCtx != nil {
+		var safe []attribute.KeyValue
+		ec.sharedCtx.ResolutionAttributes.Iterate(func(name, value string) {
+			if resolver.IsSpanSafeAttribute(name) {
+				safe = append(safe, attribute.String(name, value))
+			}
+		})
+		// Iterate is unordered; sort so repeated spans for one request are identical.
+		sort.Slice(safe, func(i, j int) bool { return safe[i].Key < safe[j].Key })
+		attrs = append(attrs, safe...)
 	}
 	span.SetAttributes(attrs...)
 }

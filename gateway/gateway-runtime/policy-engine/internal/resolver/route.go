@@ -314,8 +314,9 @@ func selectChain[C any](pr *PreparedRoute, res Resolution, getChain func(string)
 
 	if chain := getChain(res.ChainKey); chain != nil {
 		return BoundResolution{
-			ChainKey:  res.ChainKey,
-			Operation: pr.operationFor(res.ChainKey),
+			ChainKey:   res.ChainKey,
+			Operation:  pr.operationFor(res.ChainKey),
+			Attributes: res.Attributes,
 		}, chain, nil
 	}
 
