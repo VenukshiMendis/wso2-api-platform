@@ -238,10 +238,10 @@ resolution keeps the artifact from ever rendering, so it never shows up).
    polls until the live `llmproxy.deployed` event has been processed.
 9. **MCP proxy** (`@mcp_proxy`, `features/mcp_proxy.feature`) — an MCP proxy's
    `upstream.main.auth.value` uses the same shared `UpstreamAuth` schema as an LLM
-   provider's; deployment does not restart the controller. Note: `mcpSpecVersion`
-   (e.g. `"2025-06-18"`) must be set explicitly on create — omitting it defaults to an
-   empty string, which the gateway-controller's spec-version validator rejects at
-   deploy time with an unrelated-looking "Unsupported MCP spec version" error.
+   provider's; deployment does not restart the controller. Spec versions are declared with
+   `mcpSpecVersions` (e.g. `["2025-06-18"]`); the single-valued `mcpSpecVersion` is deprecated
+   but still accepted and folded into the list. Declaring none is fine — the deployment YAML
+   then omits the field and the gateway applies its own default.
 10. **REST API upstream credential** (`@rest_api_secret`,
     `features/rest_api_secret.feature`) — a plain REST API's `upstream.main.auth.value`
     embeds the placeholder. Deployment attaches the gateway and creates the deployment
