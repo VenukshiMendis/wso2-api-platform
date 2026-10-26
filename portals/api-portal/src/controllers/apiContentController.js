@@ -621,19 +621,19 @@ const loadDocument = async (req, res, next) => {
             const tryoutEnabled = req.query.tryout === true || req.query.tryout === 'true';
             templateContent.isTryout = templateContent.supportsTryout && tryoutEnabled;
             if (specType === constants.API_TYPE.WS || specType === constants.API_TYPE.WEBSUB) {
-                templateContent.asyncapi = JSON.stringify(parseApiDefinitionContent(definitionResponse.swagger));
+                templateContent.asyncapi = parseApiDefinitionContent(definitionResponse.swagger);
                 templateContent.isWebSocketTryout = tryoutEnabled;
             } else if (specType === constants.API_TYPE.GRAPHQL) {
                 templateContent.isGraphQLTryout = tryoutEnabled;
                 if (tryoutEnabled) {
                     const schemaAsIntrospectionJSON = await convertSDLToIntrospection(definitionResponse.swagger);
-                    templateContent.graphqlSchemaAsIntrospectionJSON = schemaAsIntrospectionJSON ? JSON.stringify(schemaAsIntrospectionJSON) : null;
+                    templateContent.graphqlSchemaAsIntrospectionJSON = schemaAsIntrospectionJSON || null;
                     templateContent.graphqlSecurityScheme = '[]';
                     templateContent.graphqlApiKeyHeader = 'apikey';
                     templateContent.apiMetadata = metaData;
                 } else {
-                    templateContent.graphql = JSON.stringify(definitionResponse.swagger);
-                    templateContent.apiMetadataJSON = JSON.stringify(metaData || {});
+                    templateContent.graphql = definitionResponse.swagger;
+                    templateContent.apiMetadataJSON = metaData || {};
                 }
             } else if (specType !== constants.API_TYPE.SOAP) {
                 templateContent.swagger = JSON.stringify(parseApiDefinitionContent(definitionResponse.swagger));
@@ -760,19 +760,19 @@ const loadDocument = async (req, res, next) => {
             } else if (definitionResponse.apiType === constants.API_TYPE.GRAPHQL) {
                 if (templateContent.isGraphQLTryout && definitionResponse.graphql) {
                     const schemaAsIntrospectionJSON = await convertSDLToIntrospection(definitionResponse.graphql);
-                    templateContent.graphqlSchemaAsIntrospectionJSON = schemaAsIntrospectionJSON ? JSON.stringify(schemaAsIntrospectionJSON) : null;
+                    templateContent.graphqlSchemaAsIntrospectionJSON = schemaAsIntrospectionJSON || null;
                     templateContent.graphqlSecurityScheme = '[]';
                     templateContent.graphqlApiKeyHeader = 'apikey';
                 } else {
-                    templateContent.graphql = definitionResponse.graphql ? JSON.stringify(definitionResponse.graphql) : '""';
-                    templateContent.apiMetadataJSON = JSON.stringify(apiMetadata || {});
+                    templateContent.graphql = definitionResponse.graphql ? definitionResponse.graphql : '';
+                    templateContent.apiMetadataJSON = apiMetadata || {};
                 }
                 templateContent.apiMetadata = apiMetadata;
             }
              else {
                 const parsedAsyncAPI = parseApiDefinitionContent(definitionResponse.asyncapi);
                 let modifiedAsyncAPI = replaceEndpointParamsAsyncAPI(parsedAsyncAPI, apiMetadata.endPoints.productionURL, apiMetadata.endPoints.sandboxURL);
-                templateContent.asyncapi = JSON.stringify(modifiedAsyncAPI);
+                templateContent.asyncapi = modifiedAsyncAPI;
             }
             templateContent.isAPIDefinition = true;
         }
